@@ -9,11 +9,38 @@ create table asignaturas(
   constraint UNQ_Asignaturas unique (nombre, titulacion) 
 );
 
-create or replace procedure insertaAsignatura(
-  v_idAsignatura integer, v_nombreAsig varchar, v_titulacion varchar, v_ncreditos integer) is
 
 begin
-  null; --El null es para que compile. Sustituyelo por la implementación de la tansacción.
+ create or replace procedure insertaAsignatura (
+  v_idAsignatura integer, v_nombreAsig varchar, v_titulacion varchar, v_ncreditos integer) is
+begin
+  -- Intentar insertar la asignatura
+  insert into asignaturas values (v_idAsignatura, v_nombreAsig, v_titulacion, v_ncreditos);
+  
+  -- Confirmar la inserción
+  commit;
+
+exception
+  when DUP_VAL_ON_INDEX then
+    -- Identificar la causa de la excepción
+    declare
+      v_error_code integer := SQLCODE;
+    begin
+      if v_error_code = -1 then
+        -- Violación de la clave primaria
+        raise_application_error(-20000, 'La asignatura con idAsignatura=' || v_idAsignatura ||
+                                 ' está repetida en la titulación ' || v_titulacion || '.');
+      elsif v_error_code = -0 then
+        -- Violación de la restricción UNIQUE
+        raise_application_error(-20001, 'La asignatura con nombre=' || v_nombreAsig ||
+                                 ' está repetida en la titulación ' || v_titulacion || '.');
+      end if;
+    end;
+    
+  -- Retroceder la transacción para cualquier otra excepción
+  when others then
+    rollback;
+    raise;
 end;
 /
 
